@@ -28,7 +28,6 @@ import java.util.Set;
 
 import org.bimserver.BimServer;
 import org.bimserver.BimserverDatabaseException;
-import org.bimserver.ServerIfcModel;
 import org.bimserver.database.BimserverLockConflictException;
 import org.bimserver.database.DatabaseSession;
 import org.bimserver.database.OldQuery;
@@ -79,8 +78,8 @@ public class DownloadByNewJsonQueryDatabaseAction extends AbstractDownloadDataba
 	private String json;
 	private long serializerOid;
 
-	public DownloadByNewJsonQueryDatabaseAction(BimServer bimServer, DatabaseSession databaseSession, AccessMethod accessMethod, Set<Long> roids, String json, long serializerOid, Authorization authorization) {
-		super(bimServer, databaseSession, accessMethod, authorization);
+	public DownloadByNewJsonQueryDatabaseAction(BimServer bimServer, DatabaseSession readOnlyDatabaseSession, AccessMethod accessMethod, Set<Long> roids, String json, long serializerOid, Authorization authorization) {
+		super(bimServer, readOnlyDatabaseSession, accessMethod, authorization);
 		this.roids = roids;
 		this.json = json;
 		this.serializerOid = serializerOid;
@@ -119,8 +118,6 @@ public class DownloadByNewJsonQueryDatabaseAction extends AbstractDownloadDataba
 				converter.setCopyExternalDefines(true);
 				Query query = converter.parseJson("query", (ObjectNode) queryObject);
 				
-				System.out.println(query.getOriginalJson());
-				
 				// We now have the original user query, we'll amend it a little bit to include geometry, but only if the serializer requires certain fields
 				// TODO only checking the base level of the query now, should check recursive and possibly more
 				
@@ -128,7 +125,7 @@ public class DownloadByNewJsonQueryDatabaseAction extends AbstractDownloadDataba
 //				System.out.println(new ObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(new JsonQueryObjectModelConverter(packageMetaData).toJson(query)));
 
 				pidRoidMap.put(revision.getProject().getId(), roid);
-				IfcModelInterface ifcModel = new ServerIfcModel(packageMetaData, pidRoidMap, getDatabaseSession());
+				IfcModelInterface ifcModel = getDatabaseSession().createServerModel(packageMetaData, pidRoidMap);
 
 				ifcModelSet.add(ifcModel);
 				
@@ -309,7 +306,7 @@ public class DownloadByNewJsonQueryDatabaseAction extends AbstractDownloadDataba
 			}
 		}
 		
-		IfcModelInterface ifcModel = new ServerIfcModel(lastPackageMetaData, pidRoidMap, 0, getDatabaseSession());
+		IfcModelInterface ifcModel = getDatabaseSession().createServerModel(lastPackageMetaData, pidRoidMap);
 		if (ifcModelSet.size() > 1) {
 			setProgress("Merging IFC data...", -1);
 

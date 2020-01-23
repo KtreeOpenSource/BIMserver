@@ -74,6 +74,7 @@ public class ClientIfcModel extends IfcModel implements GeometryTarget {
 	private int cachedObjectCount = -1;
 	private boolean recordChanges;
 	private boolean includeGeometry;
+	private Set<Long> geometryTried = new HashSet<>();
 
 	private ClientDebugInfo clientDebugInfo = new ClientDebugInfo();
 	private boolean deep;
@@ -287,7 +288,7 @@ public class ClientIfcModel extends IfcModel implements GeometryTarget {
 		if (tid == -1) {
 			throw new UserException("No transaction was started");
 		}
-		return bimServerClient.getLowLevelInterface().commitTransaction(tid, comment);
+		return bimServerClient.getLowLevelInterface().commitTransaction(tid, comment, true);
 	}
 
 	private void loadDeep() throws ServerException, UserException, PublicInterfaceNotFoundException, QueryException {
@@ -338,8 +339,9 @@ public class ClientIfcModel extends IfcModel implements GeometryTarget {
 			for (IdEObject ifcProduct : allWithSubTypes) {
 				GeometryInfo geometry = (GeometryInfo) ifcProduct.eGet(geometryFeature);
 				if (geometry != null) {
-					if (geometry.getData() == null || geometry.getData().getIndices() == null || geometry.getData().getIndices().getData() == null) {
+					if (!geometryTried.contains(geometry.getOid())) {
 						queryPart.addOid(geometry.getOid());
+						geometryTried.add(geometry.getOid());
 					}
 				}
 			}
@@ -364,14 +366,15 @@ public class ClientIfcModel extends IfcModel implements GeometryTarget {
 			long topicId = bimServerClient.query(query, roid, serializerOid);
 			// TODO use websocket notifications
 			bimServerClient.waitForDonePreparing(topicId);
-			InputStream inputStream = bimServerClient.getDownloadData(topicId);
-			clientDebugInfo.incrementGeometryGetDownloadData();
-			try {
-				processGeometryInputStream(inputStream);
-			} catch (Throwable e) {
-				e.printStackTrace();
-			} finally {
-				bimServerClient.getServiceInterface().cleanupLongAction(topicId);
+			try (InputStream inputStream = bimServerClient.getDownloadData(topicId)) {
+				clientDebugInfo.incrementGeometryGetDownloadData();
+				try {
+					processGeometryInputStream(inputStream);
+				} catch (Throwable e) {
+					e.printStackTrace();
+				} finally {
+					bimServerClient.getServiceInterface().cleanupLongAction(topicId);
+				}
 			}
 		}
 	}
@@ -970,12 +973,10 @@ public class ClientIfcModel extends IfcModel implements GeometryTarget {
 		clientDebugInfo.dump();
 	}
 
-	@Override
 	public PluginClassLoaderProvider getPluginClassLoaderProvider() {
 		return pluginClassLoaderProvider;
 	}
 
-	@Override
 	public void setPluginClassLoaderProvider(PluginClassLoaderProvider pluginClassLoaderProvider) {
 		this.pluginClassLoaderProvider = pluginClassLoaderProvider;
 	}

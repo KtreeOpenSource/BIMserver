@@ -43,7 +43,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class JsonQueryObjectModelConverter {
-	private static final Map<String, Include> CACHED_DEFINES = new HashMap<>();
+	private static final Map<String, Include> CACHED_DEFINES = java.util.Collections.synchronizedMap(new HashMap<>());
 	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 	private static final int LATEST_VERSION = 2;
 	private boolean copyExternalDefines = false;
@@ -62,6 +62,9 @@ public class JsonQueryObjectModelConverter {
 		for (String key : defines.keySet()) {
 			Include include = defines.get(key);
 			definesNode.set(key, dumpInclude(include));
+		}
+		if (query.getSpecialQueryType() != null) {
+			queryNode.put("specialQueryType", query.getSpecialQueryType().name());
 		}
 		ArrayNode queryPartsNode = OBJECT_MAPPER.createArrayNode();
 		queryNode.set("queries", queryPartsNode);
@@ -142,6 +145,28 @@ public class JsonQueryObjectModelConverter {
 						includesNode.add(reference.getName());
 					}
 				}
+			}
+			
+			if (queryPart.hasTiles()) {
+				Tiles tiles = queryPart.getTiles();
+				ObjectNode tilesNode = OBJECT_MAPPER.createObjectNode();
+				tilesNode.put("maxDepth", tiles.getMaxDepth());
+				tilesNode.put("densityUpperThreshold", tiles.getMinimumReuseThreshold());
+				tilesNode.put("densityLowerThreshold", tiles.getMaximumThreshold());
+				tilesNode.put("reuseLowerThreshold", tiles.getMinimumReuseThreshold());
+				if (!tiles.getGeometryIdsToReuse().isEmpty()) {
+					ArrayNode reuseNodes = OBJECT_MAPPER.createArrayNode();
+					for (long reuseId : tiles.getGeometryIdsToReuse()) {
+						reuseNodes.add(reuseId);
+					}
+					tilesNode.set("geometryDataToReuse", reuseNodes);
+				}
+				ArrayNode tileIdsNode = OBJECT_MAPPER.createArrayNode();
+				for (Integer id : tiles.getTileIds()) {
+					tileIdsNode.add(id);
+				}
+				tilesNode.set("ids", tileIdsNode);
+				queryNode.set("tiles", tilesNode);
 			}
 			queryPartsNode.add(queryPartNode);
 		}
@@ -234,6 +259,9 @@ public class JsonQueryObjectModelConverter {
 			} else {
 				throw new QueryException("\"defines\" must be of type object");
 			}
+		}
+		if (fullQuery.has("specialQueryType")) {
+			query.setSpecialQueryType(SpecialQueryType.valueOf(fullQuery.get("specialQueryType").asText()));
 		}
 		if (fullQuery.has("loaderSettings")) {
 			query.setGeometrySettings((ObjectNode) fullQuery.get("loaderSettings"));
@@ -770,7 +798,7 @@ public class JsonQueryObjectModelConverter {
 		Iterator<String> fieldNames = objectNode.fieldNames();
 		while (fieldNames.hasNext()) {
 			String fieldName = fieldNames.next();
-			if (fieldName.equals("includeAllFields") || fieldName.equals("type") || fieldName.equals("types") || fieldName.equals("oid") || fieldName.equals("oids") || fieldName.equals("guid") || fieldName.equals("guids") || fieldName.equals("name") || fieldName.equals("names") || fieldName.equals("properties") || fieldName.equals("inBoundingBox") || fieldName.equals("include") || fieldName.equals("includes") || fieldName.equalsIgnoreCase("includeAllSubtypes") || fieldName.equals("classifications") || fieldName.equals("doublebuffer") || fieldName.equals("version")  || fieldName.equals("loaderSettings") || fieldName.equals("tiles") || fieldName.equals("reuseLowerThreshold")) {
+			if (fieldName.equals("includeAllFields") || fieldName.equals("type") || fieldName.equals("types") || fieldName.equals("oid") || fieldName.equals("oids") || fieldName.equals("guid") || fieldName.equals("guids") || fieldName.equals("name") || fieldName.equals("names") || fieldName.equals("properties") || fieldName.equals("inBoundingBox") || fieldName.equals("include") || fieldName.equals("includes") || fieldName.equalsIgnoreCase("includeAllSubtypes") || fieldName.equals("classifications") || fieldName.equals("doublebuffer") || fieldName.equals("version")  || fieldName.equals("loaderSettings") || fieldName.equals("tiles") || fieldName.equals("reuseLowerThreshold") || fieldName.contentEquals("specialQueryType")) {
 				// fine
 			} else {
 				throw new QueryException("Unknown field: \"" + fieldName + "\"");

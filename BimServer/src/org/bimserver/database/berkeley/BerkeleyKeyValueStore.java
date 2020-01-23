@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -75,10 +76,11 @@ public class BerkeleyKeyValueStore implements KeyValueStore {
 	private static final boolean MONITOR_CURSOR_STACK_TRACES = false;
 	private final AtomicLong cursorCounter = new AtomicLong();
 	private final Map<Long, StackTraceElement[]> openCursors = new ConcurrentHashMap<>();
-	private boolean useTransactions = true;
+	private final boolean useTransactions = true;
+	private final boolean keyPrefixing = true;
 	private CursorConfig unsafeCursorConfig;
 
-	public BerkeleyKeyValueStore(Path dataDir) throws DatabaseInitException {
+	public BerkeleyKeyValueStore(Path dataDir, Properties properties) throws DatabaseInitException {
 		if (Files.isDirectory(dataDir)) {
 			try {
 				if (PathUtils.list(dataDir).size() > 0) {
@@ -101,8 +103,13 @@ public class BerkeleyKeyValueStore implements KeyValueStore {
 				LOGGER.error("Error creating database dir \"" + dataDir.toString() + "\"");
 			}
 		}
-		EnvironmentConfig envConfig = new EnvironmentConfig();
-		envConfig.setCachePercent(50);
+		EnvironmentConfig envConfig = null;
+		if (properties == null) {
+			envConfig = new EnvironmentConfig();
+			envConfig.setCachePercent(30);
+		} else {
+			envConfig = new EnvironmentConfig(properties);
+		}
 		envConfig.setAllowCreate(true);
 		envConfig.setTransactional(useTransactions);
 		envConfig.setTxnTimeout(10, TimeUnit.SECONDS);
@@ -150,6 +157,7 @@ public class BerkeleyKeyValueStore implements KeyValueStore {
 			throw new BimserverDatabaseException("Table " + tableName + " already created");
 		}
 		DatabaseConfig databaseConfig = new DatabaseConfig();
+		databaseConfig.setKeyPrefixing(keyPrefixing);
 		databaseConfig.setAllowCreate(true);
 		boolean finalTransactional = transactional && useTransactions;
 		databaseConfig.setDeferredWrite(!finalTransactional);
@@ -172,6 +180,7 @@ public class BerkeleyKeyValueStore implements KeyValueStore {
 			throw new BimserverDatabaseException("Table " + tableName + " already created");
 		}
 		DatabaseConfig databaseConfig = new DatabaseConfig();
+		databaseConfig.setKeyPrefixing(keyPrefixing);
 		databaseConfig.setAllowCreate(true);
 		boolean finalTransactional = transactional && useTransactions;
 //		if (!transactional) {
@@ -194,6 +203,7 @@ public class BerkeleyKeyValueStore implements KeyValueStore {
 			throw new BimserverDatabaseException("Table " + tableName + " already opened");
 		}
 		DatabaseConfig databaseConfig = new DatabaseConfig();
+		databaseConfig.setKeyPrefixing(keyPrefixing);
 		databaseConfig.setAllowCreate(false);
 		boolean finalTransactional = transactional && useTransactions;
 //		if (!transactional) {
@@ -215,6 +225,7 @@ public class BerkeleyKeyValueStore implements KeyValueStore {
 			throw new BimserverDatabaseException("Table " + tableName + " already opened");
 		}
 		DatabaseConfig databaseConfig = new DatabaseConfig();
+		databaseConfig.setKeyPrefixing(keyPrefixing);
 		databaseConfig.setAllowCreate(false);
 		boolean finalTransactional = transactional && useTransactions;
 //		if (!transactional) {

@@ -25,7 +25,6 @@ import java.util.Map;
 
 import org.bimserver.BimServer;
 import org.bimserver.BimserverDatabaseException;
-import org.bimserver.ServerIfcModel;
 import org.bimserver.database.BimserverLockConflictException;
 import org.bimserver.database.DatabaseSession;
 import org.bimserver.database.OldQuery;
@@ -84,7 +83,7 @@ public class GetDataObjectsByTypeDatabaseAction extends AbstractDownloadDatabase
 			subModel.getModelMetaData().setDate(concreteRevision.getDate());
 			ifcModelSet.add(subModel);
 		}
-		IfcModelInterface ifcModel = new ServerIfcModel(lastPackageMetaData, pidRoidMap, getDatabaseSession());
+		IfcModelInterface ifcModel = getDatabaseSession().createServerModel(lastPackageMetaData, pidRoidMap);
 		if (ifcModelSet.size() > 1) {
 			try {
 				ifcModel = getBimServer().getMergerFactory().createMerger(getDatabaseSession(), getAuthorization().getUoid()).merge(project, ifcModelSet, new ModelHelper(getBimServer().getMetaDataManager(), ifcModel));

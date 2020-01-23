@@ -87,6 +87,7 @@ public class SConverter {
 		result.setAdditionalData(input.getAdditionalData());
 		result.setNrColors(input.getNrColors());
 		result.setNrVertices(input.getNrVertices());
+		result.setIfcProductPid(input.getIfcProductPid());
 		Bounds boundsVal = input.getBounds();
 		result.setBounds(convertToSObject(boundsVal));
 		Bounds boundsUntransformedVal = input.getBoundsUntransformed();
@@ -133,6 +134,7 @@ public class SConverter {
 		result.setAdditionalData(input.getAdditionalData());
 		result.setNrColors(input.getNrColors());
 		result.setNrVertices(input.getNrVertices());
+		result.setIfcProductPid(input.getIfcProductPid());
 		result.setBounds(convertFromSObject(input.getBounds(), session));
 		result.setBoundsUntransformed(convertFromSObject(input.getBoundsUntransformed(), session));
 		result.setData((GeometryData)session.get(GeometryPackage.eINSTANCE.getGeometryData(), input.getDataId(), OldQuery.getDefault()));

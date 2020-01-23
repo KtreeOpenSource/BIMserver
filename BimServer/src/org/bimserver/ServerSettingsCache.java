@@ -23,6 +23,7 @@ import java.util.Set;
 import org.bimserver.database.BimDatabase;
 import org.bimserver.database.DatabaseSession;
 import org.bimserver.database.OldQuery;
+import org.bimserver.database.OperationType;
 import org.bimserver.models.store.ServerSettings;
 import org.bimserver.models.store.StorePackage;
 import org.slf4j.Logger;
@@ -40,7 +41,7 @@ public class ServerSettingsCache {
 	}
 
 	public synchronized void updateCache() {
-		DatabaseSession session = database.createSession();
+		DatabaseSession session = database.createSession(OperationType.READ_ONLY);
 		try {
 			serverSettings = session.getSingle(StorePackage.eINSTANCE.getServerSettings(), new OldQuery(session.getMetaDataManager().getPackageMetaData("store"), true));
 			if (serverSettings.getSessionTimeOutSeconds() == 0) {
@@ -68,6 +69,9 @@ public class ServerSettingsCache {
 	}
 
 	public ServerSettings getServerSettings() {
+		if (database.getMigrator().migrationRequired()) {
+			throw new RuntimeException("Trying to accesss ServerSettings while database needs to be migrated");
+		}
 		if (serverSettings == null) {
 			updateCache();
 		}

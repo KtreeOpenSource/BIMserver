@@ -82,7 +82,7 @@ public class Database implements BimDatabase {
 	private final AtomicInteger pidCounter = new AtomicInteger(1);
 	private final Registry registry;
 	private Date created;
-	private final Set<DatabaseSession> sessions = Collections.newSetFromMap(new ConcurrentHashMap<DatabaseSession, Boolean>());
+	final Set<DatabaseSession> sessions = Collections.newSetFromMap(new ConcurrentHashMap<DatabaseSession, Boolean>());
 	private int databaseSchemaVersion;
 	private short tableId;
 	private Migrator migrator;
@@ -95,7 +95,7 @@ public class Database implements BimDatabase {
 	 * database-schema change. Do not change this variable when nothing has
 	 * changed in the schema!
 	 */
-	public static final int APPLICATION_SCHEMA_VERSION = 55;
+	public static final int APPLICATION_SCHEMA_VERSION = 56;
 
 	public Database(BimServer bimServer, Set<? extends EPackage> emfPackages, KeyValueStore keyValueStore, MetaDataManager metaDataManager) throws DatabaseInitException {
 		this.cidToEclass = new EClass[Short.MAX_VALUE]; 
@@ -109,6 +109,9 @@ public class Database implements BimDatabase {
 			this.emfPackages.put(ePackage.getName(), ePackage);
 		}
 		this.registry = new Registry(keyValueStore);
+		if (DatabaseSession.DEVELOPER_DEBUG) {
+			new DatabaseSessionMonitor(this).start();
+		}
 	}
 
 	public int getApplicationSchemaVersion() {
@@ -128,7 +131,7 @@ public class Database implements BimDatabase {
 	}
 
 	public void init() throws DatabaseInitException, DatabaseRestartRequiredException, InconsistentModelsException {
-		DatabaseSession databaseSession = createSession();
+		DatabaseSession databaseSession = createSession(OperationType.POSSIBLY_WRITE);
 		try {
 			if (getKeyValueStore().isNew()) {
 				keyValueStore.createTable(CLASS_LOOKUP_TABLE, null, true);
@@ -364,8 +367,8 @@ public class Database implements BimDatabase {
 		return realClasses;
 	}
 
-	public DatabaseSession createSession() {
-		DatabaseSession databaseSession = new DatabaseSession(this, keyValueStore.startTransaction());
+	public DatabaseSession createSession(OperationType operationType) {
+		DatabaseSession databaseSession = new DatabaseSession(this, keyValueStore.startTransaction(), operationType);
 		sessions.add(databaseSession);
 		return databaseSession;
 	}

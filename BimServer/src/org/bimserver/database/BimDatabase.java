@@ -27,7 +27,7 @@ import org.bimserver.emf.MetaDataManager;
 import org.eclipse.emf.ecore.EClass;
 
 public interface BimDatabase {
-	DatabaseSession createSession();
+	DatabaseSession createSession(OperationType operationType);
 
 	void close();
 

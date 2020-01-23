@@ -19,6 +19,7 @@ package org.bimserver.webservices.impl;
 
 import org.bimserver.database.DatabaseSession;
 import org.bimserver.database.OldQuery;
+import org.bimserver.database.OperationType;
 import org.bimserver.database.actions.BimDatabaseAction;
 import org.bimserver.database.actions.ChangePasswordDatabaseAction;
 import org.bimserver.database.actions.LoginDatabaseAction;
@@ -44,7 +45,7 @@ public class AuthServiceImpl extends GenericServiceImpl implements AuthInterface
 
 	@Override
 	public String login(String username, String password) throws ServerException, UserException {
-		DatabaseSession session = getBimServer().getDatabase().createSession();
+		DatabaseSession session = getBimServer().getDatabase().createSession(OperationType.POSSIBLY_WRITE);
 		try {
 			System.out.println("before login");
 			LOGGER.info("before login info ");
@@ -76,7 +77,7 @@ public class AuthServiceImpl extends GenericServiceImpl implements AuthInterface
 
 	@Override
 	public String loginUserToken(String token) throws ServerException, UserException {
-		DatabaseSession session = getBimServer().getDatabase().createSession();
+		DatabaseSession session = getBimServer().getDatabase().createSession(OperationType.POSSIBLY_WRITE);
 		try {
 			LoginUserTokenDatabaseAction loginDatabaseAction = new LoginUserTokenDatabaseAction(getBimServer(), session, getServiceMap(), super.getInternalAccessMethod(), token);
 			return session.executeAndCommitAction(loginDatabaseAction);
@@ -96,7 +97,7 @@ public class AuthServiceImpl extends GenericServiceImpl implements AuthInterface
 	@Override
 	public Boolean changePassword(Long uoid, String oldPassword, String newPassword) throws ServerException, UserException {
 		requireRealUserAuthentication();
-		DatabaseSession session = getBimServer().getDatabase().createSession();
+		DatabaseSession session = getBimServer().getDatabase().createSession(OperationType.POSSIBLY_WRITE);
 		try {
 			BimDatabaseAction<Boolean> action = new ChangePasswordDatabaseAction(getBimServer(), session, getInternalAccessMethod(), uoid, oldPassword, newPassword, getAuthorization());
 			return session.executeAndCommitAction(action);
@@ -110,7 +111,7 @@ public class AuthServiceImpl extends GenericServiceImpl implements AuthInterface
 	@Override
 	public void requestPasswordChange(String username, String resetUrl, Boolean includeSiteAddress) throws ServerException, UserException {
 		// No authentication required because you should be able to do this wihout logging in...
-		DatabaseSession session = getBimServer().getDatabase().createSession();
+		DatabaseSession session = getBimServer().getDatabase().createSession(OperationType.POSSIBLY_WRITE);
 		try {
 			BimDatabaseAction<Void> action = new RequestPasswordChangeDatabaseAction(session, getInternalAccessMethod(), getBimServer(), username, resetUrl, includeSiteAddress);
 			session.executeAndCommitAction(action);
@@ -123,7 +124,7 @@ public class AuthServiceImpl extends GenericServiceImpl implements AuthInterface
 
 	@Override
 	public SUser validateAccount(Long uoid, String token, String password) throws ServerException, UserException {
-		DatabaseSession session = getBimServer().getDatabase().createSession();
+		DatabaseSession session = getBimServer().getDatabase().createSession(OperationType.POSSIBLY_WRITE);
 		try {
 			BimDatabaseAction<User> action = new ValidateUserDatabaseAction(session, getInternalAccessMethod(), uoid, token, password);
 			return getBimServer().getSConverter().convertToSObject(session.executeAndCommitAction(action));
@@ -138,7 +139,7 @@ public class AuthServiceImpl extends GenericServiceImpl implements AuthInterface
 	@Override
 	public void setHash(Long uoid, byte[] hash, byte[] salt) throws ServerException, UserException {
 		requireAdminAuthentication();
-		DatabaseSession session = getBimServer().getDatabase().createSession();
+		DatabaseSession session = getBimServer().getDatabase().createSession(OperationType.POSSIBLY_WRITE);
 		try {
 			User user = session.get(uoid, OldQuery.getDefault());
 			user.setPasswordHash(hash);

@@ -159,11 +159,11 @@ public class PluginBundleManager implements AutoCloseable {
 		List<Dependency> dependenciesToResolve = new ArrayList<>();
 		for (org.apache.maven.model.Dependency dependency2 : model.getDependencies()) {
 			String scope = dependency2.getScope();
-			if (scope != null && (scope.contentEquals("test") || scope.contentEquals("compile"))) {
+			if (scope != null && (scope.contentEquals("test"))) {
 				// Skip
 				continue;
 			}
-			Dependency d = new Dependency(new DefaultArtifact(dependency2.getGroupId(), dependency2.getArtifactId(), "pom", dependency2.getVersion()), dependency2.getScope());
+			Dependency d = new Dependency(new DefaultArtifact(dependency2.getGroupId(), dependency2.getArtifactId(), dependency2.getType(), dependency2.getVersion()), dependency2.getScope());
 			Set<Exclusion> exclusions = new HashSet<>();
 			d.setExclusions(exclusions);
 			exclusions.add(new Exclusion("org.opensourcebim", "pluginbase", null, "jar"));
@@ -179,7 +179,7 @@ public class PluginBundleManager implements AutoCloseable {
 		rootDep.accept(nlg);
 		
 		for (Dependency dependency : nlg.getDependencies(true)) {
-			if (dependency.getScope().contentEquals("test") || dependency.getScope().contentEquals("compile")) {
+			if (dependency.getScope().contentEquals("test")) {
 				continue;
 			}
 //			LOGGER.info(dependency.getArtifact().getGroupId() + "." + dependency.getArtifact().getArtifactId());
@@ -206,12 +206,17 @@ public class PluginBundleManager implements AutoCloseable {
 				}
 			} else {
 				try {
+					if (dependencyArtifact.getGroupId().contentEquals("com.sun.xml.ws")) {
+						continue;
+					}
 					MavenPluginLocation mavenPluginLocation = mavenPluginRepository.getPluginLocation(dependencyArtifact.getGroupId(), dependencyArtifact.getArtifactId());
-					Path depJarFile = mavenPluginLocation.getVersionJar(dependencyArtifact.getVersion());
-
-					FileJarClassLoader jarClassLoader = new FileJarClassLoader(pluginManager, delegatingClassLoader, depJarFile);
-					jarClassLoaders.add(jarClassLoader);
-					delegatingClassLoader.add(jarClassLoader);
+					if (dependencyArtifact.getExtension().contentEquals("jar")) {
+						Path depJarFile = mavenPluginLocation.getVersionJar(dependencyArtifact.getVersion());
+						
+						FileJarClassLoader jarClassLoader = new FileJarClassLoader(pluginManager, delegatingClassLoader, depJarFile);
+						jarClassLoaders.add(jarClassLoader);
+						delegatingClassLoader.add(jarClassLoader);
+					}
 				} catch (Exception e) {
 					e.printStackTrace();
 					throw new Exception("Required dependency " + pluginBundleIdentifier + " is not installed");

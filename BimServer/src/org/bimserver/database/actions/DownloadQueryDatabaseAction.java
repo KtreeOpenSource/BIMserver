@@ -19,10 +19,10 @@ package org.bimserver.database.actions;
 
 import org.bimserver.BimServer;
 import org.bimserver.BimserverDatabaseException;
-import org.bimserver.ServerIfcModel;
 import org.bimserver.database.BimserverLockConflictException;
 import org.bimserver.database.DatabaseSession;
 import org.bimserver.database.OldQuery;
+import org.bimserver.database.OperationType;
 import org.bimserver.emf.IfcModelInterface;
 import org.bimserver.emf.OidProvider;
 import org.bimserver.emf.PackageMetaData;
@@ -59,7 +59,7 @@ public class DownloadQueryDatabaseAction extends AbstractDownloadDatabaseAction<
 
 	@Override
 	public IfcModelInterface execute() throws UserException, BimserverLockConflictException, BimserverDatabaseException, ServerException {
-		DatabaseSession session = getBimServer().getDatabase().createSession();
+		DatabaseSession session = getBimServer().getDatabase().createSession(OperationType.READ_ONLY);
 		try {
 			SerializerPluginConfiguration serializerPluginConfiguration = getDatabaseSession().get(StorePackage.eINSTANCE.getSerializerPluginConfiguration(), serializerOid, OldQuery.getDefault());
 			BimDatabaseAction<IfcModelInterface> action = new DownloadDatabaseAction(getBimServer(), session, AccessMethod.INTERNAL, roid, -1, serializerPluginConfiguration.getOid(), getAuthorization());
@@ -72,7 +72,7 @@ public class DownloadQueryDatabaseAction extends AbstractDownloadDatabaseAction<
 				QueryEnginePlugin queryEnginePlugin = getBimServer().getPluginManager().getQueryEngine(queryEngineObject.getPluginDescriptor().getPluginClassName(), true);
 				if (queryEnginePlugin != null) {
 					QueryEngine queryEngine = queryEnginePlugin.getQueryEngine(getBimServer().getPluginSettingsCache().getPluginSettings(queryEngineObject.getOid()));
-					final IfcModelInterface result = new ServerIfcModel(packageMetaData, null, getDatabaseSession());
+					final IfcModelInterface result = getDatabaseSession().createServerModel(packageMetaData, null);
 					ModelHelper modelHelper = new ModelHelper(getBimServer().getMetaDataManager(), result);
 					modelHelper.setOidProvider(new OidProvider(){
 						private long oid = 1000000;

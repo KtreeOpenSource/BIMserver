@@ -42,8 +42,10 @@ import java.util.concurrent.TimeUnit;
 import org.bimserver.BimServer;
 import org.bimserver.database.DatabaseSession;
 import org.bimserver.database.OldQuery;
+import org.bimserver.database.OperationType;
 import org.bimserver.models.log.AccessMethod;
 import org.bimserver.models.store.ObjectState;
+import org.bimserver.models.store.ServerState;
 import org.bimserver.models.store.User;
 import org.bimserver.shared.ServiceFactory;
 import org.bimserver.shared.exceptions.UserException;
@@ -74,7 +76,13 @@ public class PublicInterfaceFactory implements ServiceFactory {
 	}
 	
 	public synchronized ServiceMap get(AccessMethod accessMethod) throws UserException {
-		Authorization authorization = new AnonymousAuthorization(bimServer.getServerSettingsCache().getServerSettings().getSessionTimeOutSeconds(), TimeUnit.SECONDS);
+		Authorization authorization = null;
+		if (bimServer.getServerInfo().getServerState() == ServerState.MIGRATION_REQUIRED) {
+			// We don't want to access the server settings, because those are possibly also to be migrated
+			authorization = new AnonymousAuthorization(60 * 10, TimeUnit.SECONDS);
+		} else {
+			authorization = new AnonymousAuthorization(bimServer.getServerSettingsCache().getServerSettings().getSessionTimeOutSeconds(), TimeUnit.SECONDS);
+		}
 		return get(authorization, accessMethod, null);
 	}
 	
@@ -87,7 +95,7 @@ public class PublicInterfaceFactory implements ServiceFactory {
 				// We do this on login as well, so no need to do for cached auth
 				// TODO When a user is being deleted, this auth cache should be updated accordingly
 				// TODO A logout method should be added
-				DatabaseSession session = bimServer.getDatabase().createSession();
+				DatabaseSession session = bimServer.getDatabase().createSession(OperationType.READ_ONLY);
 				try {
 					user = session.get(authorization.getUoid(), OldQuery.getDefault());
 					if (user == null) {

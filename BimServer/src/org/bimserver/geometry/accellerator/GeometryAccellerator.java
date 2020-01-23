@@ -32,6 +32,7 @@ import org.bimserver.BimServer;
 import org.bimserver.BimserverDatabaseException;
 import org.bimserver.database.DatabaseSession;
 import org.bimserver.database.OldQuery;
+import org.bimserver.database.OperationType;
 import org.bimserver.database.queries.Bounds;
 import org.bimserver.database.queries.QueryObjectProvider;
 import org.bimserver.database.queries.om.Include;
@@ -105,7 +106,7 @@ public class GeometryAccellerator {
 	private Octree generateOctree(OctreeKey key) {
 		LOGGER.info("Generating octree: " + key);
 		Long start = System.nanoTime();
-		try (DatabaseSession databaseSession = bimServer.getDatabase().createSession()) {
+		try (DatabaseSession databaseSession = bimServer.getDatabase().createSession(OperationType.READ_ONLY)) {
 			Bounds totalBounds = new Bounds();
 
 			for (long roid : key.getRoids()) {
@@ -262,7 +263,7 @@ public class GeometryAccellerator {
 	private DensityThreshold generateDensityThreshold(DensityThresholdKey key) {
 		long start = System.nanoTime();
 		DensityThreshold densityThreshold = new DensityThreshold();
-		try (DatabaseSession session = bimServer.getDatabase().createSession()) {
+		try (DatabaseSession session = bimServer.getDatabase().createSession(OperationType.READ_ONLY)) {
 			Set<Long> roids = key.getRoid();
 			List<Density> allDensities = new ArrayList<>();
 			for (long roid : roids) {
@@ -306,9 +307,12 @@ public class GeometryAccellerator {
 					}
 				}
 			}
-			if (densityResult == null) {
+			if (densityResult == null && allDensities.size() > 0) {
 				densityResult = allDensities.get(0);
 				densityResult.setDensity(-1);
+			}
+			if (densityResult == null) {
+				return null;
 			}
 			// This is useful information, so the client knows exactly how many triangles will be loaded by using this threshold
 			densityResult.setTrianglesBelow(cumulativeTrianglesBelow);
@@ -318,7 +322,7 @@ public class GeometryAccellerator {
 			LOGGER.error("", e);
 		}
 		long end = System.nanoTime();
-		LOGGER.info("Density thresholds generated in " + ((end - start) / 1000000) + "ms");
+//		LOGGER.info("Density thresholds generated in " + ((end - start) / 1000000) + "ms");
 		return densityThreshold;
 	}
 	
@@ -335,7 +339,7 @@ public class GeometryAccellerator {
 	private ReuseSet generateReuseSet(ReuseKey key) {
 		long start = System.nanoTime();
 		ReuseSet reuseSet = new ReuseSet();
-		try (DatabaseSession databaseSession = bimServer.getDatabase().createSession()) {
+		try (DatabaseSession databaseSession = bimServer.getDatabase().createSession(OperationType.READ_ONLY)) {
 			// Assuming all given roids are of projects that all have the same schema
 
 			Revision revision = databaseSession.get(key.getRoids().iterator().next(), OldQuery.getDefault());
@@ -392,7 +396,11 @@ public class GeometryAccellerator {
 
 	public SDensity getDensityThreshold(Set<Long> roids, Long nrTriangles, Set<String> excludedTypes) {
 		DensityThresholdKey key = new DensityThresholdKey(roids, nrTriangles, excludedTypes);
-		return generateDensityThreshold(key).getDensity();
+		DensityThreshold generateDensityThreshold = generateDensityThreshold(key);
+		if (generateDensityThreshold == null) {
+			return null;
+		}
+		return generateDensityThreshold.getDensity();
 //		try {
 //			return densityThresholds.get(key).getDensity();
 //		} catch (ExecutionException e) {
